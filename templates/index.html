@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost RPG - Web Edition</title>
+    <style>
+        :root {
+            --primary-color: #0a1f0a;
+            --secondary-color: #1a2f1a;
+            --accent-color: #2d5a27;
+            --text-color: #c5e1a5;
+            --highlight-color: #4caf50;
+            --danger-color: #ff5252;
+            --success-color: #69f0ae;
+            --mana-color: #40c4ff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            background-image: linear-gradient(45deg, #0a1f0a 25%, #0d240d 25%, #0d240d 50%, #0a1f0a 50%, #0a1f0a 75%, #0d240d 75%, #0d240d 100%);
+            background-size: 40px 40px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 40px);
+            overflow: hidden;
+        }
+
+        .panel {
+            background: linear-gradient(160deg, var(--secondary-color) 0%, rgba(26, 47, 26, 0.9) 100%);
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 4px 15px rgba(45, 90, 39, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            overflow: hidden;
+        }
+
+        .character-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 100%;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) var(--primary-color);
+        }
+
+        .stat-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--accent-color);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+            position: relative;
+        }
+
+        .stat-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .hp-fill { 
+            background: linear-gradient(to right, #ff5252, #ff867c);
+            box-shadow: 0 0 10px rgba(255, 82, 82, 0.3);
+        }
+        
+        .mana-fill { 
+            background: linear-gradient(to right, #40c4ff, #80d8ff);
+            box-shadow: 0 0 10px rgba(64, 196, 255, 0.3);
+        }
+        
+        .exp-fill { 
+            background: linear-gradient(to right, #69f0ae, #b9f6ca);
+            box-shadow: 0 0 10px rgba(105, 240, 174, 0.3);
+        }
+
+        .stat-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+        }
+
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: 100%;
+        }
+
+        .game-log {
+            flex-grow: 1;
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--accent-color);
+            border-radius: 5px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) var(--primary-color);
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(160deg, var(--accent-color) 0%, var(--secondary-color) 100%);
+            border: 1px solid var(--highlight-color);
+            color: var(--text-color);
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(160deg, var(--highlight-color) 0%, var(--accent-color) 100%);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .combat-view {
+            display: none;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .combat-view.active {
+            display: block;
+        }
+
+        .enemy-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            padding: 20px;
+            position: relative;
+        }
+
+        .enemy-sprite {
+            width: 150px;
+            height: 150px;
+            margin: 20px auto;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            animation: float 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+            position: relative;
+            background-color: transparent !important;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .enemy-stats {
+            text-align: left;
+            margin-left: 20px;
+        }
+
+        .level-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: var(--highlight-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .modal.show {
+            display: flex !important;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            border: 2px solid var(--accent-color);
+            border-radius: 10px;
+            padding: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            animation: modal-appear 0.3s ease-out;
+        }
+
+        @keyframes modal-appear {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .close {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            font-size: 24px;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close:hover {
+            color: var(--highlight-color);
+        }
+
+        .modal h2 {
+            margin: 0 0 15px 0;
+            color: var(--highlight-color);
+            text-align: center;
+        }
+
+        .tutorial-highlight {
+            position: relative;
+            animation: pulse 2s infinite;
+            z-index: 100;
+            box-shadow: 0 0 15px var(--success-color) !important;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px 5px var(--accent-color); }
+            50% { box-shadow: 0 0 20px 5px var(--accent-color); }
+            100% { box-shadow: 0 0 10px 5px var(--accent-color); }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--secondary-color);
+            padding: 10px;
+            border-radius: 5px;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            margin-bottom: 10px;
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: var(--secondary-color);
+        }
+
+        .game-log {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .game-log div {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 3px;
+            animation: fade-in 0.3s ease-out;
+            border-left: 3px solid var(--accent-color);
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .game-log div:nth-child(odd) {
+            background: rgba(45, 90, 39, 0.2);
+        }
+
+        .btn {
+            position: relative;
+        }
+
+        .btn:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--secondary-color);
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-bottom: 5px;
+        }
+
+        .highlight-hint {
+            animation: hint-pulse 1s infinite;
+        }
+
+        @keyframes hint-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .quest-item {
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            transition: all 0.2s ease;
+        }
+
+        .quest-item.completed {
+            border-left-color: var(--success-color);
+            opacity: 0.8;
+        }
+
+        .quest-item h4 {
+            margin: 0 0 10px 0;
+            color: var(--highlight-color);
+        }
+
+        .quest-item p {
+            margin: 5px 0;
+        }
+
+        #questList h3 {
+            margin: 20px 0 10px 0;
+            color: var(--text-color);
+            border-bottom: 1px solid var(--accent-color);
+            padding-bottom: 5px;
+        }
+
+        .inventory-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--success-color);
+            padding: 10px;
+            border-radius: 5px;
+            animation: fade-out 2s forwards;
+            z-index: 1000;
+        }
+
+        @keyframes fade-out {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .location-option {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .location-option:hover {
+            background: rgba(45, 90, 39, 0.3);
+        }
+
+        .location-description {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #a5d6a7;
+            padding-left: 10px;
+            border-left: 2px solid var(--accent-color);
+        }
+
+        .location-option .btn {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #locationList {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .stat-increase {
+            animation: stat-bump 0.5s ease-out;
+            color: var(--success-color);
+        }
+
+        @keyframes stat-bump {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .level-up-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--secondary-color);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid var(--success-color);
+            animation: level-up-appear 0.5s ease-out;
+            z-index: 1000;
+        }
+
+        @keyframes level-up-appear {
+            from { transform: translate(-50%, -50%) scale(0); }
+            to { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .level-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            border: 2px solid var(--accent-color);
+        }
+
+        .level-circle {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--accent-color), var(--highlight-color));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .level-text {
+            font-size: 14px;
+            color: var(--text-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .level-circle.level-up {
+            animation: level-up-pulse 1s ease-out;
+        }
+
+        @keyframes level-up-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
+            50% { transform: scale(1.2); box-shadow: 0 0 30px var(--highlight-color); }
+            100% { transform: scale(1); box-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
+        }
+
+        .damage-number {
+            position: absolute;
+            animation: damage-float 1s ease-out forwards;
+            color: var(--danger-color);
+            font-weight: bold;
+            font-size: 24px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes damage-float {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+
+        .quest-log {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid var(--accent-color);
+            flex-grow: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) var(--primary-color);
+        }
+
+        .quest-log h2 {
+            margin-bottom: 15px;
+        }
+
+        .quest-item {
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            transition: all 0.2s ease;
+        }
+
+        .quest-item h4 {
+            margin: 0 0 10px 0;
+            color: var(--highlight-color);
+        }
+
+        .quest-item p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .quest-item .btn {
+            margin-top: 10px;
+            width: 100%;
+            padding: 8px;
+        }
+
+        .inventory-panel {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 15px;
+            overflow: hidden;
+            padding: 15px;
+        }
+
+        .inventory-panel h2 {
+            color: var(--highlight-color);
+            font-size: 1.1em;
+            margin: 0;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--accent-color);
+        }
+
+        .inventory-section,
+        .quest-log,
+        .daily-quest-section,
+        .achievement-section {
+            flex: 0 0 auto;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .quest-item, 
+        .daily-quest-item, 
+        .achievement-item {
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            transition: all 0.2s ease;
+        }
+
+        .achievement-item.completed {
+            border-left-color: var(--success-color);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--highlight-color) 0%, var(--accent-color) 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .achievement-item h4,
+        .daily-quest-item h4 {
+            color: var(--highlight-color);
+            margin: 0 0 5px 0;
+            font-size: 0.9em;
+        }
+
+        .achievement-item p,
+        .daily-quest-item p {
+            margin: 3px 0;
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid var(--accent-color);
+        }
+
+        .shop-item:hover {
+            border-color: var(--highlight-color);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .shop-item-info {
+            flex: 1;
+        }
+
+        .shop-item-info h3 {
+            color: var(--highlight-color);
+            margin: 0 0 5px 0;
+        }
+
+        .shop-item-price {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .shop-item-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .quantity-input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid var(--accent-color);
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--text-color);
+            border-radius: 3px;
+        }
+
+        .buy-btn {
+            padding: 8px 16px;
+        }
+
+        .purchase-effect {
+            position: fixed;
+            color: var(--success-color);
+            font-weight: bold;
+            animation: float-up 1s ease-out forwards;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+
+        #shopItems {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        /* Collapsible Section Styling */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .section-header:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 1.1em;
+            color: var(--highlight-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-header .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .section-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            max-height: 500px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease;
+            padding: 0 10px;
+        }
+
+        .section-content.collapsed {
+            max-height: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* Enhanced Item Styling */
+        .inventory-item:hover, .quest-item:hover, .daily-quest-item:hover, .achievement-item:hover {
+            transform: translateX(5px);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--highlight-color);
+        }
+
+        /* Daily Quest Item Styling */
+        .daily-quest-item {
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            transition: all 0.2s ease;
+        }
+
+        .daily-quest-item.completed {
+            border-left-color: var(--success-color);
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .daily-quest-item.completed .progress-fill {
+            background: var(--success-color);
+        }
+
+        .quest-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
+        .progress-text {
+            color: var(--text-color);
+        }
+
+        .reward-text {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .daily-quest-item h4 {
+            color: var(--highlight-color);
+            margin: 0 0 5px 0;
+        }
+
+        .daily-quest-item p {
+            margin: 5px 0;
+            font-size: 0.9em;
+            color: var(--text-color);
+        }
+
+        /* Achievement Item Styling */
+        .achievement-item {
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            transition: all 0.2s ease;
+        }
+
+        .achievement-item.completed {
+            border-left-color: var(--success-color);
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .achievement-item.completed .progress-fill {
+            background: var(--success-color);
+        }
+
+        .achievement-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
+        .achievement-item .reward-text {
+            color: var(--success-color);
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .game-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.8);
+            color: var(--text-color);
+            z-index: 1000;
+            animation: slide-in 0.3s ease-out;
+        }
+
+        .game-notification.achievement {
+            background: linear-gradient(90deg, var(--highlight-color), var(--accent-color));
+        }
+
+        .game-notification.reward {
+            background: linear-gradient(90deg, var(--success-color), var(--highlight-color));
+        }
+
+        @keyframes slide-in {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Tutorial Modal Styling */
+        .tutorial-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .tutorial-content {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            border: 2px solid var(--highlight-color);
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 400px;
+            text-align: center;
+            animation: tutorial-appear 0.3s ease-out;
+        }
+
+        @keyframes tutorial-appear {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .tutorial-content h3 {
+            color: var(--highlight-color);
+            margin: 0 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        .tutorial-content p {
+            margin: 0 0 20px 0;
+            line-height: 1.5;
+            font-size: 1.1em;
+        }
+
+        .tutorial-btn {
+            background: linear-gradient(160deg, var(--highlight-color), var(--accent-color));
+            padding: 12px 24px;
+            font-size: 1.1em;
+        }
+
+        .tutorial-highlight {
+            position: relative;
+            z-index: 2001;
+            box-shadow: 0 0 0 4px var(--highlight-color) !important;
+            animation: highlight-pulse 2s infinite;
+        }
+
+        @keyframes highlight-pulse {
+            0% { box-shadow: 0 0 0 4px var(--highlight-color); }
+            50% { box-shadow: 0 0 0 8px var(--success-color); }
+            100% { box-shadow: 0 0 0 4px var(--highlight-color); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel character-panel">
+            <h2>Character Stats</h2>
+            <div class="level-indicator">
+                <div class="level-circle">
+                    <span id="level">1</span>
+                </div>
+                <div class="level-text">Level</div>
+            </div>
+            
+            <div>HP: <span id="hp">100</span>/<span id="maxHp">100</span></div>
+            <div class="stat-bar">
+                <div class="stat-fill hp-fill"></div>
+            </div>
+            
+            <div>Mana: <span id="mana">100</span>/<span id="maxMana">100</span></div>
+            <div class="stat-bar">
+                <div class="stat-fill mana-fill"></div>
+            </div>
+            
+            <div>EXP: <span id="exp">0</span>/<span id="expToLevel">100</span></div>
+            <div class="stat-bar">
+                <div class="stat-fill exp-fill"></div>
+            </div>
+            
+            <div>Strength: <span id="strength">10</span></div>
+            <div>Defense: <span id="defense">5</span></div>
+            <div>Gold: <span id="gold">50</span></div>
+        </div>
+
+        <div class="panel main-panel">
+            <div class="location-view">
+                <h2>Current Location: <span id="location">Town</span></h2>
+                <div class="action-buttons">
+                    <button class="btn" onclick="explore()" data-tooltip="Find and battle ghosts">Explore</button>
+                    <button class="btn" onclick="openShop()" data-tooltip="Buy items with gold">Shop</button>
+                    <button class="btn" onclick="rest()" data-tooltip="Recover HP and Mana">Rest</button>
+                    <button class="btn" onclick="openTravel()" data-tooltip="Visit new locations">Travel</button>
+                    <button class="btn" onclick="openInventory()" data-tooltip="View and use items">Inventory</button>
+                    <button class="btn" onclick="openQuests()" data-tooltip="View and accept quests">📜 Quests</button>
+                    <button class="btn" onclick="saveGame()" data-tooltip="Save your progress">💾 Save</button>
+                    <button class="btn" onclick="loadGame()" data-tooltip="Load saved game">📂 Load</button>
+                </div>
+            </div>
+
+            <div class="combat-view">
+                <h2>Combat</h2>
+                <div class="enemy-container">
+                    <div class="enemy-sprite" id="enemySprite">
+                        <div class="level-badge" id="enemyLevel">1</div>
+                    </div>
+                    <div class="enemy-stats">
+                        <h3 id="enemyName">Enemy</h3>
+                        <div class="stat-bar">
+                            <div class="stat-fill hp-fill" id="enemyHpBar" style="width: 100%"></div>
+                        </div>
+                        <div>HP: <span id="enemyHp">50</span>/<span id="enemyMaxHp">50</span></div>
+                    </div>
+                </div>
+                <div class="combat-buttons">
+                    <button class="btn" onclick="attack()">⚔️ Attack</button>
+                    <button class="btn" onclick="useAbility()">✨ Ability</button>
+                    <button class="btn" onclick="useItem()">🧪 Item</button>
+                    <button class="btn" onclick="run()">🏃 Run</button>
+                </div>
+            </div>
+
+            <div class="game-log" id="gameLog"></div>
+        </div>
+
+        <div class="panel inventory-panel">
+            <!-- Inventory Section -->
+            <div class="collapsible-section">
+                <div class="section-header" onclick="toggleSection('inventory')">
+                    <h2>🎒 Inventory</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div id="inventory-content" class="section-content">
+                    <div id="inventoryList"></div>
+                </div>
+            </div>
+
+            <!-- Quests Section -->
+            <div class="collapsible-section">
+                <div class="section-header" onclick="toggleSection('quests')">
+                    <h2>📜 Active Quests</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div id="quests-content" class="section-content">
+                    <div id="questList"></div>
+                </div>
+            </div>
+
+            <!-- Daily Quests Section -->
+            <div class="collapsible-section">
+                <div class="section-header" onclick="toggleSection('daily-quests')">
+                    <h2>🌟 Daily Quests</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div id="daily-quests-content" class="section-content">
+                    <div id="dailyQuestList"></div>
+                </div>
+            </div>
+
+            <!-- Achievements Section -->
+            <div class="collapsible-section">
+                <div class="section-header" onclick="toggleSection('achievements')">
+                    <h2>🏆 Achievements</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div id="achievements-content" class="section-content">
+                    <div id="achievementList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="shopModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeShop()">&times;</span>
+            <h2>🏪 Shop</h2>
+            <div id="shopItems"></div>
+        </div>
+    </div>
+
+    <div id="travelModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeTravel()">&times;</span>
+            <h2>Travel</h2>
+            <p class="modal-description">Choose a location to travel to. Different areas have different enemies and rewards.</p>
+            <div id="locationList"></div>
+        </div>
+    </div>
+
+    <div class="save-indicator">
+        <span id="saveIndicatorText"></span>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        window.onload = async function() {
+            await initGame();
+            // Initialize enhanced features after game loads
+            window.gameEnhancements.onboarding = new OnboardingSystem();
+            window.gameEnhancements.onboarding.start();
+            achievements.init();
+            dailyQuests.init();
+        };
+    </script>
+</body>
+</html> 
