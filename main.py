@@ -98,10 +98,8 @@ def home():
 
 @app.route('/api/init', methods=['POST'])
 def init_game():
-    # Try to get existing player data from session
     player = session.get('player', game_state.player.copy())
-    
-    # Ensure the session is updated
+
     session['player'] = player
     
     return jsonify({
@@ -117,9 +115,8 @@ def explore():
     if not player:
         return jsonify({'error': 'No active session'}), 400
     
-    # Use the location from the request instead of session
     location = data.get('location', player.get('location', 'Town'))
-    player['location'] = location  # Update the session with current location
+    player['location'] = location 
     session['player'] = player
         
     if location == "Town":
@@ -161,45 +158,38 @@ def combat_attack():
         'player': player
     }
     
-    # If enemy is defeated
     if enemy['hp'] <= 0:
         player['exp'] += enemy['exp']
         player['gold'] += enemy['gold']
         player['inventory']['Ghost Essence'] += 1
         
-        # Handle special drops based on enemy type
         if enemy_name == "Phantom":
-            if random.random() < 0.4:  # 40% chance
+            if random.random() < 0.4:  
                 amount = random.randint(1, 2)
                 player['inventory']['Spirit Shard'] = player['inventory'].get('Spirit Shard', 0) + amount
                 result['message'] += f'\n✨ You found {amount} Spirit Shard{"s" if amount > 1 else ""}!'
         elif enemy_name == "Poltergeist":
-            if random.random() < 0.3:  # 30% chance
+            if random.random() < 0.3:  
                 player['inventory']['Ancient Relic'] = player['inventory'].get('Ancient Relic', 0) + 1
                 result['message'] += '\n🏺 You found an Ancient Relic!'
-            if random.random() < 0.5:  # 50% chance
+            if random.random() < 0.5:  
                 amount = random.randint(1, 3)
                 player['inventory']['Spirit Shard'] = player['inventory'].get('Spirit Shard', 0) + amount
                 result['message'] += f'\n✨ You found {amount} Spirit Shard{"s" if amount > 1 else ""}!'
         
-        # Update quest progress for enemy kills and items
         for quest_name, quest in list(player['quests'].items()):
-            # Ghost Hunter quest progress
             if quest_name == "Ghost Hunter" and enemy_name == "Weak Ghost" and player['location'] == "Haunted Forest":
                 quest['progress'] += 1
                 result['message'] += f'\n📜 Quest progress: {quest["progress"]}/{quest["target"]}'
             
-            # Spirit Collector quest progress
             elif quest_name == "Spirit Collector" and 'Spirit Shard' in player['inventory']:
                 quest['progress'] = min(player['inventory']['Spirit Shard'], quest['target'])
                 result['message'] += f'\n📜 Quest progress: {quest["progress"]}/{quest["target"]}'
             
-            # Ancient Secrets quest progress
             elif quest_name == "Ancient Secrets" and 'Ancient Relic' in player['inventory']:
                 quest['progress'] = min(player['inventory']['Ancient Relic'], quest['target'])
                 result['message'] += f'\n📜 Quest progress: {quest["progress"]}/{quest["target"]}'
             
-            # Check if any quest is complete
             if quest['progress'] >= quest['target']:
                 player['gold'] += quest['reward_gold']
                 player['exp'] += quest['reward_exp']
@@ -208,14 +198,12 @@ def combat_attack():
                 result['message'] += f'\n✨ Quest Complete: {quest_name}!'
                 result['message'] += f'\n💰 Received {quest["reward_gold"]} gold and {quest["reward_exp"]} XP!'
         
-        # Check for level up
         if check_level_up(player):
             result['message'] += f'\n🎉 Level Up! You are now level {player["level"]}!'
             result['message'] += f'\n💪 Your stats have increased!'
             
         result['victory'] = True
         
-    # If enemy is still alive, they counter-attack
     else:
         enemy_damage = max(1, enemy['strength'] - player['defense'])
         player['hp'] -= enemy_damage
@@ -307,14 +295,11 @@ def travel():
     if location not in game_state.locations:
         return jsonify({'error': 'Invalid location'})
     
-    # Preserve current HP and Mana
     current_hp = player.get('hp')
     current_mana = player.get('mana')
     
-    # Update location
     player['location'] = location
     
-    # Restore HP and Mana
     if current_hp is not None:
         player['hp'] = current_hp
     if current_mana is not None:
@@ -336,11 +321,9 @@ def rest():
     if player['location'] != 'Town':
         return jsonify({'error': '❌ You can only rest in town!'})
     
-    # Fully restore HP and Mana
     player['hp'] = player['maxHp']
     player['mana'] = player['maxMana']
     
-    # Save the updated player state
     session['player'] = player
     
     return jsonify({
@@ -458,16 +441,14 @@ def accept_quest():
 
 def check_level_up(player):
     while player['exp'] >= player['expToLevel']:
-        # Level up!
         player['level'] += 1
-        player['exp'] -= player['expToLevel']  # Subtract the exp needed for this level
-        player['expToLevel'] = int(player['expToLevel'] * 1.5)  # Increase exp needed for next level
+        player['exp'] -= player['expToLevel']  
+        player['expToLevel'] = int(player['expToLevel'] * 1.5)  
         
-        # Increase stats
         player['maxHp'] += 20
-        player['hp'] = player['maxHp']  # Fully heal on level up
+        player['hp'] = player['maxHp'] 
         player['maxMana'] += 10
-        player['mana'] = player['maxMana']  # Fully restore mana on level up
+        player['mana'] = player['maxMana'] 
         player['strength'] += 3
         player['defense'] += 2
         
